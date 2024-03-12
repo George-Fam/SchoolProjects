@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# If statement: Seulement 1 Argument
+if [ $# -ne 1 ]; then # s'il ya plus qu'un argument ou s'il n'y a pas
+ echo "Usage: ./backup-dbs QLITE3_DBS_DIR" # Message d'erreur 0,2+ arg
+ exit 1 # sortie, code sortie erreur
+fi # fin if statement
+
+# Répertoires
+rep_db="$1" # Répertoire contenant les bases de données SQL
+rep_backup="./mybackups" # Répertoire de sauvegarde des archives compressées
+rep_sql="./sql" # Répertoire de sauvegarde des fichiers SQL.
+
+# Vérifie si des bases de données SQL existent dans le répertoire
+if ! ls "$rep_db"/*.db 1>/dev/null 2>&1; then # Si ls rep/*.db affiche une erreur car rien ne termine par .db
+    echo "Aucune base de données à sauvegarder dans le répertoire $rep_db" # Message d'erreur pas de *.db
+    exit 1 # sortie, code sortie erreur
+fi
+
+# Récupération de la date actuelle au format YYYYMMDDHHMM
+current_date=$(date +"%Y%m%d%H%M")
+
+# Exporter chaque base de données SQLite3 au format SQL
+for fich_db in "$rep_db"/*.db; do 
+    if [ -f "$fich_db" ]; then
+        db_nom=$(basename "$fich_db" .db) # nom du fichier db
+        sql_nom="$rep_sql/$db_nom-$current_date.sql" # Nom du fichier sql a partir du repertoire, nom du fichier db et la date
+        sqlite3 "$fich_db" .dump > "$sql_nom" # Commande pour sortir fichier sql du db
+        echo "Export de $fich_db sous format SQL ..." # Message expliquant ce qui se passe
+    fi
+done
+
+# Créer une archive tar contenant tous les fichiers SQL
+cd $rep_sql #cd au repertoire sql
+tar -czf "../$rep_backup/mydbs-$current_date.tar.gz" *.sql #Compression fichiers sql
+cd - # Retour au repetoire original
+echo "Archivage et compression dans $rep_backup/mydbs-$current_date.tar.gz" # Message expliquant ce qui se passe
+
+# Supprimer les fichiers SQL
+rm -f "$rep_sql"/*.sql
+echo "Supression des fichiers SQL de toutes les bases de données ..."
+
+# Message et sortie succès
+echo "Sauvegarde effectuée avec succès : mydbs-$current_date.tar.gz"
+exit 0 # Sortie succès

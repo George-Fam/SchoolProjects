@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# Vérifier le nombre d'arguments
+if [ "$#" -lt 2 ] || [ "$#" -gt 5 ]; then
+    echo "./recent : le nombre d'arguments n'est pas correct" >&2
+    exit
+fi
+
+# Initialisation des variables
+chemin_fichier=""
+nombre_fichiers=10
+corriger_hex=false
+
+# Traitement des arguments
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -f)
+            shift
+            chemin_fichier="$1"
+            >&2
+            ;;
+        -n)
+            shift
+            nombre_fichiers="$1"
+            if ! [[ "$nombre_fichiers" =~ ^[0-9]+$ ]]; then
+                echo "./recent : $nombre_fichiers doit être un nombre entier strictement supérieur à 0" >&2
+                exit
+            fi
+            ;;
+        -c)
+            corriger_hex=true
+            ;;
+        *)
+            echo "./recent : option inconnue ou argument inconnu" >&2
+            exit
+            ;;
+    esac
+    shift
+done
+
+# Vérification du chemin du fichier
+if [ ! -f "$chemin_fichier" ]; then
+    echo "./recent : '$chemin_fichier' est un nom de fichier non valide ou introuvable" >&2
+    exit
+fi
+
+# Extraction et tri des fichiers récents
+recent_fichier=$(grep '<bookmark href=' "$chemin_fichier" | \
+               sed -n 's/.*href="file:\/\/\(.*\)" visited="\(.*\)Z".*/\2 \1/p' | \
+               sort -r | \
+               head -n "$nombre_fichiers" | \
+               awk '{print $2}' | \
+               sed 's/"$//') \
+
+# Correction des caractères hexadécimaux si demandé
+if [ "$corriger_hex" = true ]; then
+    echo "$recent_fichier" | sed 's/%/\\x/g' | xargs -0 -I {} echo -e '{}'
+else
+    echo "$recent_fichier"
+fi
